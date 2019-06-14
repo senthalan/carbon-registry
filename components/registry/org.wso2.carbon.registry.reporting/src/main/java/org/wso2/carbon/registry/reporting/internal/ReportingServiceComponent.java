@@ -21,6 +21,12 @@ package org.wso2.carbon.registry.reporting.internal;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.osgi.service.component.ComponentContext;
+import org.osgi.service.component.annotations.Activate;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Deactivate;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 import org.wso2.carbon.base.MultitenantConstants;
 import org.wso2.carbon.context.PrivilegedCarbonContext;
 import org.wso2.carbon.ntask.common.TaskException;
@@ -28,19 +34,17 @@ import org.wso2.carbon.ntask.core.TaskManager;
 import org.wso2.carbon.ntask.core.service.TaskService;
 import org.wso2.carbon.registry.core.service.RegistryService;
 
-/**
- * @scr.component name="org.wso2.carbon.registry.reporting" immediate="true"
- * @scr.reference name="ntask.component" interface="org.wso2.carbon.ntask.core.service.TaskService"
- * cardinality="1..1" policy="dynamic" bind="setTaskService" unbind="unsetTaskService"
- * @scr.reference name="registry.service"
- * interface="org.wso2.carbon.registry.core.service.RegistryService" cardinality="1..1"
- * policy="dynamic" bind="setRegistryService" unbind="unsetRegistryService"
- */
+@Component(
+        name = "org.wso2.carbon.registry.reporting",
+        immediate = true)
 public class ReportingServiceComponent {
 
     private static final Log log = LogFactory.getLog(ReportingServiceComponent.class);
+
     private static final String REPORTING_TASK_MANAGER = "registryReportingTasks";
+
     private static TaskService taskService;
+
     private static RegistryService registryService;
 
     /**
@@ -48,12 +52,15 @@ public class ReportingServiceComponent {
      *
      * @param context the component context
      */
+    @Activate
     protected void activate(ComponentContext context) {
+
         log.debug("******* Registry Reporting bundle is activated ******* ");
         initialize();
     }
 
     private void initialize() {
+
         getTaskManager(MultitenantConstants.SUPER_TENANT_ID);
     }
 
@@ -62,16 +69,19 @@ public class ReportingServiceComponent {
      *
      * @param context the component context
      */
+    @Deactivate
     protected void deactivate(ComponentContext context) {
+
         log.debug("******* Registry Reporting bundle is deactivated ******* ");
     }
 
     public static TaskManager getTaskManager(int tenantId) {
+
         try {
             PrivilegedCarbonContext.startTenantFlow();
             try {
                 PrivilegedCarbonContext.getThreadLocalCarbonContext().setTenantId(tenantId, true);
-                TaskManager taskManager =  taskService.getTaskManager(REPORTING_TASK_MANAGER);
+                TaskManager taskManager = taskService.getTaskManager(REPORTING_TASK_MANAGER);
                 taskService.registerTaskType(REPORTING_TASK_MANAGER);
                 return taskManager;
             } finally {
@@ -83,30 +93,47 @@ public class ReportingServiceComponent {
         return null;
     }
 
+    @Reference(
+            name = "ntask.component",
+            service = org.wso2.carbon.ntask.core.service.TaskService.class,
+            cardinality = ReferenceCardinality.MANDATORY,
+            policy = ReferencePolicy.DYNAMIC,
+            unbind = "unsetTaskService")
     public void setTaskService(TaskService taskService) {
-        updateTaskService(taskService);
 
+        updateTaskService(taskService);
     }
 
+    @Reference(
+            name = "registry.service",
+            service = org.wso2.carbon.registry.core.service.RegistryService.class,
+            cardinality = ReferenceCardinality.MANDATORY,
+            policy = ReferencePolicy.DYNAMIC,
+            unbind = "unsetRegistryService")
     protected void setRegistryService(RegistryService service) {
+
         registryService = service;
     }
 
     protected void unsetRegistryService(RegistryService registryService) {
+
         setRegistryService(null);
     }
 
     public void unsetTaskService(TaskService taskService) {
+
         updateTaskService(null);
     }
 
     // Method to update task service.
     private static void updateTaskService(TaskService service) {
+
         taskService = service;
     }
 
     // Method to update task service.
     public static RegistryService getRegistryService() {
+
         return registryService;
     }
 }

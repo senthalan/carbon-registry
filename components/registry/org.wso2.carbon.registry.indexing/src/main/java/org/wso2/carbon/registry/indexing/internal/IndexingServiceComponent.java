@@ -16,7 +16,6 @@
  *  under the License.
  *
  */
-
 package org.wso2.carbon.registry.indexing.internal;
 
 import org.apache.axis2.context.ConfigurationContext;
@@ -24,6 +23,12 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.osgi.framework.ServiceRegistration;
 import org.osgi.service.component.ComponentContext;
+import org.osgi.service.component.annotations.Activate;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Deactivate;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 import org.wso2.carbon.CarbonConstants;
 import org.wso2.carbon.context.PrivilegedCarbonContext;
 import org.wso2.carbon.registry.common.AttributeSearchService;
@@ -35,7 +40,12 @@ import org.wso2.carbon.registry.core.session.UserRegistry;
 import org.wso2.carbon.registry.indexing.IndexingManager;
 import org.wso2.carbon.registry.indexing.Utils;
 import org.wso2.carbon.registry.indexing.indexer.IndexerException;
-import org.wso2.carbon.registry.indexing.service.*;
+import org.wso2.carbon.registry.indexing.service.ContentBasedSearchService;
+import org.wso2.carbon.registry.indexing.service.ContentSearchService;
+import org.wso2.carbon.registry.indexing.service.SearchResultsBean;
+import org.wso2.carbon.registry.indexing.service.TenantIndexingLoader;
+import org.wso2.carbon.registry.indexing.service.TermsQuerySearchService;
+import org.wso2.carbon.registry.indexing.service.TermsSearchService;
 import org.wso2.carbon.utils.AbstractAxis2ConfigurationContextObserver;
 import org.wso2.carbon.utils.Axis2ConfigurationContextObserver;
 import org.wso2.carbon.utils.WaitBeforeShutdownObserver;
@@ -46,53 +56,55 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Stack;
 
-/**
- * @scr.component name="org.wso2.carbon.registry.indexing" immediate="true"
- * @scr.reference name="registry.service"
- * interface="org.wso2.carbon.registry.core.service.RegistryService" cardinality="1..1"
- * policy="dynamic" bind="setRegistryService" unbind="unsetRegistryService"
- */
+@Component(
+        name = "org.wso2.carbon.registry.indexing",
+        immediate = true)
 public class IndexingServiceComponent {
 
     /**
      * This class is the bridge between Carbon and Indexing code
      */
-
     private static Log log = LogFactory.getLog(IndexingServiceComponent.class);
 
     private static Stack<ServiceRegistration> registrations = new Stack<ServiceRegistration>();
 
     private static Map<Integer, Boolean> initializedTenants = new HashMap<>();
 
+    @Activate
     protected void activate(ComponentContext context) {
-        registrations.push(context.getBundleContext().registerService(
-                ContentSearchService.class.getName(), new ContentSearchServiceImpl(), null));
-        registrations.push(context.getBundleContext().registerService(
-                AttributeSearchService.class.getName(), new AttributeSearchServiceImpl(), null));
-        registrations.push(context.getBundleContext().registerService(
-                TermsSearchService.class.getName(), new TermsSearchServiceImpl(), null));
-        registrations.push(context.getBundleContext().registerService(
-                TermsQuerySearchService.class.getName(), new TermsQuerySearchServiceImpl(), null));
-        registrations.push(context.getBundleContext().registerService(
-                WaitBeforeShutdownObserver.class.getName(), new WaitBeforeShutdownObserver() {
+
+        registrations.push(context.getBundleContext().registerService(ContentSearchService.class.getName(), new
+                ContentSearchServiceImpl(), null));
+        registrations.push(context.getBundleContext().registerService(AttributeSearchService.class.getName(), new
+                AttributeSearchServiceImpl(), null));
+        registrations.push(context.getBundleContext().registerService(TermsSearchService.class.getName(), new
+                TermsSearchServiceImpl(), null));
+        registrations.push(context.getBundleContext().registerService(TermsQuerySearchService.class.getName(), new
+                TermsQuerySearchServiceImpl(), null));
+        registrations.push(context.getBundleContext().registerService(WaitBeforeShutdownObserver.class.getName(), new
+                WaitBeforeShutdownObserver() {
+
             boolean status = false;
+
             public void startingShutdown() {
+
                 try {
                     IndexingManager.getInstance().stopIndexing();
                 } finally {
-                   status = true;
+                    status = true;
                 }
             }
 
             public boolean isTaskComplete() {
+
                 return status;
             }
         }, null));
         TenantDeploymentListenerImpl listener = new TenantDeploymentListenerImpl();
-        registrations.push(context.getBundleContext().registerService(
-                Axis2ConfigurationContextObserver.class.getName(), listener, null));
-        registrations.push(context.getBundleContext().registerService(
-                TenantIndexingLoader.class.getName(), listener, null));
+        registrations.push(context.getBundleContext().registerService(Axis2ConfigurationContextObserver.class.getName
+                (), listener, null));
+        registrations.push(context.getBundleContext().registerService(TenantIndexingLoader.class.getName(), listener,
+                null));
         try {
             if (Utils.isIndexingConfigAvailable()) {
                 IndexingManager.getInstance().startIndexing();
@@ -105,30 +117,44 @@ public class IndexingServiceComponent {
         log.debug("Registry Indexing bundle is activated");
     }
 
+    @Deactivate
     protected void deactivate(ComponentContext context) {
+
         while (!registrations.empty()) {
             registrations.pop().unregister();
         }
         log.debug("Registry Indexing bundle is deactivated");
     }
 
+    @Reference(
+            name = "registry.service",
+            service = org.wso2.carbon.registry.core.service.RegistryService.class,
+            cardinality = ReferenceCardinality.MANDATORY,
+            policy = ReferencePolicy.DYNAMIC,
+            unbind = "unsetRegistryService")
     protected void setRegistryService(RegistryService registryService) {
+
         Utils.setRegistryService(registryService);
     }
 
     protected void unsetRegistryService(RegistryService registryService) {
+
         stopIndexing();
         Utils.setRegistryService(null);
     }
 
     private void stopIndexing() {
+
         IndexingManager.getInstance().stopIndexing();
     }
 
+    @Component(
+            name = "org.wso2.carbon.registry.indexing",
+            immediate = true)
     private static class ContentSearchServiceImpl implements ContentSearchService {
 
-        public ResourceData[] search(UserRegistry registry, String query)
-                throws RegistryException {
+        public ResourceData[] search(UserRegistry registry, String query) throws RegistryException {
+
             SearchResultsBean resultsBean;
             try {
                 resultsBean = new ContentBasedSearchService().searchContent(query, registry);
@@ -142,20 +168,25 @@ public class IndexingServiceComponent {
             return resultsBean.getResourceDataList();
         }
 
-        public ResourceData[] search(int tenantId, String query)
-                throws RegistryException {
-            return search(Utils.getRegistryService().getRegistry(
-                    CarbonConstants.REGISTRY_SYSTEM_USERNAME, tenantId), query);
+        public ResourceData[] search(int tenantId, String query) throws RegistryException {
+
+            return search(Utils.getRegistryService().getRegistry(CarbonConstants.REGISTRY_SYSTEM_USERNAME, tenantId),
+                    query);
         }
 
         public ResourceData[] search(String query) throws RegistryException {
+
             return search(MultitenantConstants.SUPER_TENANT_ID, query);
         }
     }
+
+    @Component(
+            name = "org.wso2.carbon.registry.indexing",
+            immediate = true)
     private static class AttributeSearchServiceImpl implements AttributeSearchService {
 
-        public ResourceData[] search(UserRegistry registry, Map<String, String> query)
-                throws RegistryException {
+        public ResourceData[] search(UserRegistry registry, Map<String, String> query) throws RegistryException {
+
             SearchResultsBean resultsBean;
             try {
                 resultsBean = new ContentBasedSearchService().searchByAttribute(query, registry);
@@ -169,13 +200,14 @@ public class IndexingServiceComponent {
             return resultsBean.getResourceDataList();
         }
 
-        public ResourceData[] search(int tenantId, Map<String, String> query)
-                throws RegistryException {
-            return search(Utils.getRegistryService().getRegistry(
-                    CarbonConstants.REGISTRY_SYSTEM_USERNAME, tenantId), query);
+        public ResourceData[] search(int tenantId, Map<String, String> query) throws RegistryException {
+
+            return search(Utils.getRegistryService().getRegistry(CarbonConstants.REGISTRY_SYSTEM_USERNAME, tenantId),
+                    query);
         }
 
         public ResourceData[] search(Map<String, String> query) throws RegistryException {
+
             int tenantId;
             try {
                 tenantId = PrivilegedCarbonContext.getThreadLocalCarbonContext().getTenantId();
@@ -189,10 +221,14 @@ public class IndexingServiceComponent {
         }
     }
 
+    @Component(
+            name = "org.wso2.carbon.registry.indexing",
+            immediate = true)
     private static class TermsSearchServiceImpl implements TermsSearchService {
 
         @Override
         public TermData[] search(UserRegistry registry, Map<String, String> query) throws RegistryException {
+
             SearchResultsBean resultsBean;
             try {
                 resultsBean = new ContentBasedSearchService().searchTerms(query, registry);
@@ -208,12 +244,14 @@ public class IndexingServiceComponent {
 
         @Override
         public TermData[] search(int tenantId, Map<String, String> query) throws RegistryException {
-            return search(Utils.getRegistryService().getRegistry(
-                    CarbonConstants.REGISTRY_SYSTEM_USERNAME, tenantId), query);
+
+            return search(Utils.getRegistryService().getRegistry(CarbonConstants.REGISTRY_SYSTEM_USERNAME, tenantId),
+                    query);
         }
 
         @Override
         public TermData[] search(Map<String, String> query) throws RegistryException {
+
             int tenantId;
             try {
                 tenantId = PrivilegedCarbonContext.getThreadLocalCarbonContext().getTenantId();
@@ -227,10 +265,14 @@ public class IndexingServiceComponent {
         }
     }
 
+    @Component(
+            name = "org.wso2.carbon.registry.indexing",
+            immediate = true)
     private static class TermsQuerySearchServiceImpl implements TermsQuerySearchService {
 
         @Override
         public TermData[] search(UserRegistry registry, String query, String facetField) throws RegistryException {
+
             SearchResultsBean resultsBean;
             try {
                 resultsBean = new ContentBasedSearchService().searchTermsByQuery(query, facetField, registry);
@@ -246,12 +288,14 @@ public class IndexingServiceComponent {
 
         @Override
         public TermData[] search(int tenantId, String query, String facetField) throws RegistryException {
-            return search(Utils.getRegistryService().getRegistry(
-                    CarbonConstants.REGISTRY_SYSTEM_USERNAME, tenantId), query, facetField);
+
+            return search(Utils.getRegistryService().getRegistry(CarbonConstants.REGISTRY_SYSTEM_USERNAME, tenantId),
+                    query, facetField);
         }
 
         @Override
         public TermData[] search(String query, String facetField) throws RegistryException {
+
             int tenantId;
             try {
                 tenantId = PrivilegedCarbonContext.getThreadLocalCarbonContext().getTenantId();
@@ -266,25 +310,27 @@ public class IndexingServiceComponent {
     }
 
     public static Boolean isTenantIndexLoadedFromLogin(int tenantId) {
+
         return initializedTenants.get(tenantId);
     }
 
     public static void unloadTenantIndex(int tenantId) {
+
         if (log.isDebugEnabled()) {
             log.debug("Removing tenant: " + tenantId);
         }
         if (initializedTenants.remove(tenantId) != null && log.isDebugEnabled()) {
-            log.debug("Size of initializedTenants after removing tenant " + tenantId + ": "
-                    + initializedTenants.size());
+            log.debug("Size of initializedTenants after removing tenant " + tenantId + ": " + initializedTenants.size
+                    ());
         }
     }
 
-
-    // An implementation of an Axis2 Configuration Context observer,
-    // which is used to handle the requirement of initializing the indexer for a tenant.
     @SuppressWarnings("unused")
-    private static class TenantDeploymentListenerImpl extends AbstractAxis2ConfigurationContextObserver
-            implements TenantIndexingLoader {
+    @Component(
+            name = "org.wso2.carbon.registry.indexing",
+            immediate = true)
+    private static class TenantDeploymentListenerImpl extends AbstractAxis2ConfigurationContextObserver implements
+            TenantIndexingLoader {
 
         @Override
         public void createdConfigurationContext(ConfigurationContext configurationContext) {
@@ -299,7 +345,6 @@ public class IndexingServiceComponent {
         }
 
         private synchronized void loadTenantIndex(int tenantId, boolean isTenantLoaded) {
-            // need to add only if there are no existing entry or when there is
             // already an entry for the flow triggered by an anonymous user login
             if (isTenantIndexLoadedFromLogin(tenantId) == null || !isTenantIndexLoadedFromLogin(tenantId)) {
                 if (log.isDebugEnabled()) {
@@ -307,8 +352,8 @@ public class IndexingServiceComponent {
                 }
                 initializedTenants.put(tenantId, isTenantLoaded);
                 if (log.isDebugEnabled()) {
-                    log.debug("Size of initializedTenants after adding tenant " + tenantId + ": "
-                            + initializedTenants.size());
+                    log.debug("Size of initializedTenants after adding tenant " + tenantId + ": " +
+                            initializedTenants.size());
                 }
             }
         }
@@ -320,7 +365,7 @@ public class IndexingServiceComponent {
     }
 
     public static boolean canIndexTenant(int tenantId) {
+
         return tenantId == MultitenantConstants.SUPER_TENANT_ID || initializedTenants.containsKey(tenantId);
     }
 }
-

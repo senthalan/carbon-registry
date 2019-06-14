@@ -1368,6 +1368,11 @@
                 <version>${powermock.version}</version>
                 <scope>test</scope>
             </dependency>
+            <dependency>
+                <groupId>org.apache.felix</groupId>
+                <artifactId>org.apache.felix.scr.ds-annotations</artifactId>
+                <version>${apache.felix.scr.ds.annotations.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -1674,5 +1679,7 @@
         <test.framework.version>4.4.3</test.framework.version>
         <jacoco.agent.version>0.7.5.201505241946</jacoco.agent.version>
         <testng.verson>6.1.1</testng.verson>
+    <apache.felix.scr.ds.annotations.version>1.2.4</apache.felix.scr.ds.annotations.version>
+        <maven.scr.plugin.version>1.26.0</maven.scr.plugin.version>
     </properties>
 </project>

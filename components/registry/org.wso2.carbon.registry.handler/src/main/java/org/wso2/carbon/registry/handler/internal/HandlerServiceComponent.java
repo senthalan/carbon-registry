@@ -20,64 +20,88 @@ package org.wso2.carbon.registry.handler.internal;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.wso2.carbon.registry.core.service.SimulationService;
-import org.wso2.carbon.registry.core.service.RegistryService;
-import org.wso2.carbon.registry.handler.util.CommonUtil;
-import org.wso2.carbon.registry.handler.listener.HandlerLoader;
-import org.wso2.carbon.core.services.callback.LoginSubscriptionManagerService;
 import org.osgi.service.component.ComponentContext;
+import org.osgi.service.component.annotations.Activate;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Deactivate;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
+import org.wso2.carbon.core.services.callback.LoginSubscriptionManagerService;
+import org.wso2.carbon.registry.core.service.RegistryService;
+import org.wso2.carbon.registry.core.service.SimulationService;
+import org.wso2.carbon.registry.handler.listener.HandlerLoader;
+import org.wso2.carbon.registry.handler.util.CommonUtil;
 
-/**
- * @scr.component name="org.wso2.carbon.registry.handler" immediate="true"
- * @scr.reference name="registry.service"
- * interface="org.wso2.carbon.registry.core.service.RegistryService" cardinality="1..1"
- * policy="dynamic" bind="setRegistryService" unbind="unsetRegistryService"
- * @scr.reference name="login.subscription.service"
- * interface="org.wso2.carbon.core.services.callback.LoginSubscriptionManagerService" cardinality="0..1"
- * policy="dynamic" bind="setLoginSubscriptionManagerService" unbind="unsetLoginSubscriptionManagerService"
- * @scr.reference name="registry.simulation.service"
- * interface="org.wso2.carbon.registry.core.service.SimulationService" cardinality="1..1"
- * policy="dynamic" bind="setSimulationService" unbind="unsetSimulationService"
- */
+@Component(
+        name = "org.wso2.carbon.registry.handler",
+        immediate = true)
 public class HandlerServiceComponent {
 
     private static Log log = LogFactory.getLog(HandlerServiceComponent.class);
 
+    @Activate
     protected void activate(ComponentContext context) {
+
         try {
             log.debug("******* Handler Management Service bundle is activated ******* ");
         } catch (Exception e) {
             log.debug("******* Failed to activate Handler Management Service bundle ******* ");
         }
-
     }
 
+    @Deactivate
     protected void deactivate(ComponentContext context) {
+
         log.debug("******* Handler Management Service bundle is deactivated ******* ");
     }
 
+    @Reference(
+            name = "registry.service",
+            service = org.wso2.carbon.registry.core.service.RegistryService.class,
+            cardinality = ReferenceCardinality.MANDATORY,
+            policy = ReferencePolicy.DYNAMIC,
+            unbind = "unsetRegistryService")
     protected void setRegistryService(RegistryService registryService) {
+
         CommonUtil.setRegistryService(registryService);
     }
 
     protected void unsetRegistryService(RegistryService registryService) {
+
         CommonUtil.setRegistryService(null);
     }
 
+    @Reference(
+            name = "registry.simulation.service",
+            service = org.wso2.carbon.registry.core.service.SimulationService.class,
+            cardinality = ReferenceCardinality.MANDATORY,
+            policy = ReferencePolicy.DYNAMIC,
+            unbind = "unsetSimulationService")
     protected void setSimulationService(SimulationService simulationService) {
+
         CommonUtil.setSimulationService(simulationService);
     }
 
     protected void unsetSimulationService(SimulationService simulationService) {
+
         CommonUtil.setSimulationService(null);
     }
 
+    @Reference(
+            name = "login.subscription.service",
+            service = org.wso2.carbon.core.services.callback.LoginSubscriptionManagerService.class,
+            cardinality = ReferenceCardinality.OPTIONAL,
+            policy = ReferencePolicy.DYNAMIC,
+            unbind = "unsetLoginSubscriptionManagerService")
     protected void setLoginSubscriptionManagerService(LoginSubscriptionManagerService loginManager) {
+
         log.debug("******* LoginSubscriptionManagerService is set ******* ");
         loginManager.subscribe(new HandlerLoader());
     }
 
     protected void unsetLoginSubscriptionManagerService(LoginSubscriptionManagerService loginManager) {
+
         log.debug("******* LoginSubscriptionManagerService is unset ******* ");
     }
 }
